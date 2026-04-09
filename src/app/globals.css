@@ -1,0 +1,31 @@
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0;
+  background: #0e0e12;
+  color: #f0eff8;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease both;
+}
+
+a { color: #6366f1; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+textarea:focus { border-color: rgba(99,102,241,0.5) !important; }
+
+button:hover { opacity: 0.88; }
+button:active { transform: scale(0.97); }
+button:disabled { opacity: 0.4 !important; cursor: not-allowed; }

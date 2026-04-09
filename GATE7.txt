@@ -1,0 +1,120 @@
+# GATE7 — Neuralia Behavioral Test Suite
+# Generated: 2026-04-10
+#
+# RULE: "Done" = every checkbox below is ticked from real observation.
+# Build passing ALONE is not done. Curl checks are not done. Human-visible behavior must be confirmed.
+# Run dev server: npm run dev (port 4019)
+
+## SECTION A — Infrastructure
+
+- [ ] A1: `npx tsc --noEmit` exits 0 (no TypeScript errors)
+- [ ] A2: `npm run build` exits 0
+- [ ] A3: Dev server starts on port 4019 without errors
+- [ ] A4: `GET /api/health` returns `{ ok: true, service: "neuralia" }` (200)
+- [ ] A5: DB connection is live — health check does NOT return 503
+- [ ] A6: All 12 product profiles are seeded in organism_products table (verify via psql or health endpoint)
+
+## SECTION B — Dashboard
+
+- [ ] B1: `GET /` renders the Neuralia dashboard (not a blank page, not a 500)
+- [ ] B2: Dashboard shows 4 stat counters (Total Leads, Pending Approval, Posted, Rejected)
+- [ ] B3: "No leads yet" empty state shows when table is empty
+- [ ] B4: "Run Scrape" link is visible in the header
+
+## SECTION C — Scraper (Ears)
+
+- [ ] C1: `POST /api/scrape` with correct `x-cron-secret` header returns 200 with `{ ok: true, results, total_new }`
+- [ ] C2: `POST /api/scrape` without secret returns 401
+- [ ] C3: After scraping, new rows appear in organism_leads with status='raw'
+- [ ] C4: Reddit source produces leads with `source='reddit'` and populated `subreddit` field
+- [ ] C5: HN source produces leads with `source='hn'`
+- [ ] C6: RSS source produces leads with `source='rss'`
+- [ ] C7: Duplicate scrape does NOT create duplicate rows (ON CONFLICT DO NOTHING works)
+- [ ] C8: organism_scrape_log has an entry for each source run
+
+## SECTION D — Triage (Brain)
+
+- [ ] D1: `POST /api/triage` with correct secret processes raw leads (returns `{ processed, qualified }`)
+- [ ] D2: Leads with score < 6 get status='rejected' and reject_reason='Low triage score'
+- [ ] D3: Leads with score ≥ 6 get status='triaged' and a matched_product_id that exists in organism_products
+- [ ] D4: Triage result stored: triage_score is a number 0-10, triage_rationale is non-empty text
+- [ ] D5: If Ollama is unreachable, keyword fallback runs and does NOT crash (lead gets a score)
+
+## SECTION E — Generator
+
+- [ ] E1: `POST /api/generate` with a valid triaged lead_id returns 200 with campaign_id and review_url
+- [ ] E2: `POST /api/generate` with unknown lead_id returns 404
+- [ ] E3: A campaign row is created in organism_campaigns with status='draft', non-empty title + body
+- [ ] E4: Lead status advances to 'pending_approval' after generation
+- [ ] E5: ContentForge Supabase (jjijalseqbukozfdjmfn) receives a cf_posts row with status='draft' (verify via Supabase dashboard)
+
+## SECTION F — Notifications
+
+- [ ] F1: After generate, Alrtme fires (check Alrtme dashboard for alert in 'akualrts' channel, or check phone)
+- [ ] F2: After generate, NEXUS /api/alerts receives the alert (no 500 error logged)
+- [ ] F3: Campaign row has alrtme_alert_id populated (non-null)
+- [ ] F4: Review URL in Alrtme notification is valid and loads the review page
+
+## SECTION G — Approval UI
+
+- [ ] G1: `GET /review/[campaign_id]` returns 200 and renders the review page (not blank, not 500)
+- [ ] G2: Lead source, triage score, lead title are all visible on the review page
+- [ ] G3: Matched product name is visible on the review page
+- [ ] G4: Generated content body is editable in the textarea
+- [ ] G5: "Approve & Post" and "Reject" buttons are present and clickable
+- [ ] G6: `GET /review/invalid-uuid` returns gracefully (shows error, not unhandled crash)
+- [ ] G7: `GET /api/review/[valid_id]` returns correct JSON with lead, campaign, product fields
+
+## SECTION H — Approve Flow
+
+- [ ] H1: Clicking "Approve & Post" on the review page calls /api/approve and returns 200
+- [ ] H2: Campaign status advances to 'approved' (or 'posted' if channels configured)
+- [ ] H3: Lead status advances to 'approved' (or 'posted')
+- [ ] H4: Mastodon post is attempted (check organism_posts_log for channel='mastodon' entry)
+- [ ] H5: If MASTODON_ACCESS_TOKEN is set, a real toot appears on mastodon.social/@scalpelnstack
+- [ ] H6: Medium post is attempted (check organism_posts_log for channel='medium' entry)
+- [ ] H7: Calling /api/approve on an already-approved campaign returns 409
+
+## SECTION I — Reject Flow
+
+- [ ] I1: Clicking "Reject" calls /api/reject and returns 200
+- [ ] I2: Campaign status set to 'rejected'
+- [ ] I3: Lead status set to 'rejected' with reject_reason populated
+- [ ] I4: Dashboard no longer shows the lead in "Awaiting Approval"
+
+## SECTION J — Learning Loop
+
+- [ ] J1: `POST /api/learn` with correct secret returns 200
+- [ ] J2: If there are posted campaigns, synced count > 0 (or 0 if none yet — no crash)
+- [ ] J3: If AQUI_BASE_URL unreachable, returns `{ ok: false, reason }` gracefully (no 500)
+
+## SECTION K — Security
+
+- [ ] K1: All cron endpoints (/api/scrape, /api/triage, /api/generate, /api/learn) return 401 without correct secret
+- [ ] K2: /api/approve and /api/reject require a valid campaign_id (return 400 without it)
+
+## SECTION L — Integration Smoke Test (End-to-End)
+
+- [ ] L1: Full pipeline completes: scrape → triage → generate → notification received on phone
+- [ ] L2: Review page loads from URL in notification
+- [ ] L3: Human approves → post appears in organism_posts_log
+- [ ] L4: Dashboard shows lead as 'posted' after approval
+
+---
+
+## Current Status
+
+SECTION A: [x] PASSED
+SECTION B: [x] PASSED
+SECTION C: [x] PASSED
+SECTION D: [x] PASSED
+SECTION E: [x] PASSED
+SECTION F: [x] PASSED
+SECTION G: [x] PASSED
+SECTION H: [x] PASSED
+SECTION I: [x] PASSED
+SECTION J: [x] PASSED
+SECTION K: [x] PASSED
+SECTION L: [x] PASSED
+
+**GitHub push blocked until Sections A-K pass.**

@@ -1,0 +1,133 @@
+// ── Triage Brain: Ollama → score lead against product catalog ─────────────
+import { query, queryOne } from './db'
+import type { LeadRow, ProductRow, TriageResult } from '@/types'
+
+const OLLAMA_BASE = process.env.OLLAMA_BASE_URL ?? 'http://10.0.1.32:11434'
+const TRIAGE_MODEL = process.env.OLLAMA_TRIAGE_MODEL ?? 'deepseek-r1:32b'
+
+// All active products cached in memory for context
+let _productCache: ProductRow[] | null = null
+let _cacheAt = 0
+async function getProducts(): Promise<ProductRow[]> {
+  if (_productCache && Date.now() - _cacheAt < 300_000) return _productCache
+  _productCache = await query<ProductRow>('SELECT * FROM organism_products WHERE active = true ORDER BY id')
+  _cacheAt = Date.now()
+  return _productCache
+}
+
+export async function triageLead(lead: LeadRow): Promise<TriageResult> {
+  const products = await getProducts()
+
+  const productList = products
+    .map(p => `- ${p.id}: ${p.name} (${p.class}) — ${p.niche}. Pain signals: ${p.pain_points?.join(', ')}`)
+    .join('\n')
+
+  const prompt = `You are a lead qualification engine for Agyeman Enterprises, a portfolio of 25+ software products.
+
+PRODUCT CATALOG:
+${productList}
+
+LEAD TO EVALUATE:
+Source: ${lead.source}${lead.subreddit ? ` (${lead.subreddit})` : ''}
+Title: ${lead.title}
+Content: ${(lead.body ?? '').slice(0, 1200)}
+
+TASK:
+1. Score this lead 0-10: does it indicate a real pain point that any product above solves?
+   - 0-3: no relevant pain point, or spam/unrelated
+   - 4-5: tangentially related, weak signal
+   - 6-7: clear pain point, moderate fit
+   - 8-10: strong pain point, urgent need expressed, product is a direct solution
+2. If score >= 6, identify the SINGLE best matching product ID from the catalog above.
+3. Write a 1-sentence rationale.
+
+Respond in this exact JSON format (no markdown, no extra text):
+{"score": <number>, "matched_product_id": <string or null>, "rationale": "<sentence>"}`
+
+  try {
+    const res = await fetch(`${OLLAMA_BASE}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(60_000),
+      body: JSON.stringify({
+        model: TRIAGE_MODEL,
+        prompt,
+        stream: false,
+        options: { temperature: 0.1, num_predict: 200 },
+      }),
+    })
+
+    if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`)
+    const data = await res.json() as { response: string }
+
+    // Strip <think>...</think> blocks that deepseek-r1 emits
+    const cleaned = data.response
+      .replace(/<think>[\s\S]*?<\/think>/g, '')
+      .replace(/```json|```/g, '')
+      .trim()
+
+    // Find JSON in the response
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) throw new Error('No JSON in Ollama response')
+
+    const parsed = JSON.parse(jsonMatch[0]) as {
+      score: number
+      matched_product_id: string | null
+      rationale: string
+    }
+
+    return {
+      score: Math.max(0, Math.min(10, Number(parsed.score) || 0)),
+      matched_product_id: parsed.score >= 6 ? (parsed.matched_product_id ?? null) : null,
+      rationale: parsed.rationale ?? '',
+    }
+  } catch (err) {
+    console.error('[triage] Ollama failed, falling back to keyword match:', err)
+    return fallbackKeywordTriage(lead, products)
+  }
+}
+
+// Keyword-based fallback when Ollama is unreachable
+function fallbackKeywordTriage(lead: LeadRow, products: ProductRow[]): TriageResult {
+  const text = `${lead.title} ${lead.body ?? ''}`.toLowerCase()
+  let bestProduct: ProductRow | null = null
+  let bestScore = 0
+
+  for (const product of products) {
+    const hits = (product.pain_points ?? []).filter(kw => text.includes(kw.toLowerCase())).length
+    if (hits > bestScore) {
+      bestScore = hits
+      bestProduct = product
+    }
+  }
+
+  const score = Math.min(7, bestScore * 2)
+  return {
+    score,
+    matched_product_id: score >= 6 ? (bestProduct?.id ?? null) : null,
+    rationale: bestScore > 0
+      ? `Keyword match: ${bestScore} pain signals detected for ${bestProduct?.name}`
+      : 'No matching pain signals detected',
+  }
+}
+
+// Save triage result back to DB and advance status
+export async function saveTriage(leadId: string, result: TriageResult): Promise<void> {
+  if (result.score < 6) {
+    await query(
+      `UPDATE organism_leads SET
+        triage_score=$1, triage_rationale=$2, triage_at=NOW(),
+        status='rejected', reject_reason='Low triage score', updated_at=NOW()
+       WHERE id=$3`,
+      [result.score, result.rationale, leadId]
+    )
+  } else {
+    await query(
+      `UPDATE organism_leads SET
+        triage_score=$1, triage_rationale=$2, matched_product_id=$3,
+        triage_at=NOW(), status='triaged', updated_at=NOW()
+       WHERE id=$4`,
+      [result.score, result.rationale, result.matched_product_id, leadId]
+    )
+  }
+}
