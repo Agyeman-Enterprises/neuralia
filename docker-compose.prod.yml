@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   neuralia-app:
-    image: neuralia-app
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: neuralia-app
     restart: always
     ports:
