@@ -1,0 +1,102 @@
+[
+  {
+    "id": "aitonoma",
+    "name": "Aitonoma",
+    "class": "marketing",
+    "niche": "AI Marketing Automation for Solopreneurs",
+    "medium_pub": "aitonoma",
+    "target_keywords": ["marketing automation", "ai marketing", "solopreneur", "growth hacking"],
+    "target_subreddits": ["SaaS", "marketing", "entrepreneur"],
+    "description": "Autonomous marketing organism for high-frequency lead gen."
+  },
+  {
+    "id": "scribemdpro",
+    "name": "ScribeMD Pro",
+    "class": "medical",
+    "niche": "AI Medical Scribe and Documentation",
+    "medium_pub": "dramd",
+    "target_keywords": ["medical scribe", "documentation", "ehr", "physician burnout"],
+    "target_subreddits": ["medicine", "doctors", "residency"],
+    "description": "AI-powered clinical scribe for physicians."
+  },
+  {
+    "id": "thredz",
+    "name": "Thredz",
+    "class": "productivity",
+    "niche": "Voice-to-Action Ideation App",
+    "medium_pub": "productivity",
+    "target_keywords": ["voice notes", "ideation", "productivity", "voice to action"],
+    "target_subreddits": ["productivity", "getdisciplined"],
+    "description": "Capture ideas in the car and turn them into actions."
+  },
+  {
+    "id": "taxrx",
+    "name": "TaxRx",
+    "class": "fintech",
+    "niche": "AI Tax Strategy for Physicians",
+    "medium_pub": "taxrx",
+    "target_keywords": ["tax strategy", "physician finance", "irs helper"],
+    "target_subreddits": ["whitecoatinvestor", "personalfinance"],
+    "description": "Automated tax planning for high-earning medical professionals."
+  },
+  {
+    "id": "ghexit",
+    "name": "Ghexit",
+    "class": "dev_tools",
+    "niche": "GitHub Exit Automation",
+    "medium_pub": "dev",
+    "target_keywords": ["github automation", "ci cd", "git exit", "workflow"],
+    "target_subreddits": ["github", "devops"],
+    "description": "Automate repository exit flows and hygiene."
+  },
+  {
+    "id": "vokryn",
+    "name": "Vokryn",
+    "class": "telecom",
+    "niche": "Global CPaaS for Communication Platforms",
+    "medium_pub": "vokryn",
+    "target_keywords": ["cpaas", "telecom api", "sms gateway", "voip"],
+    "target_subreddits": ["telecom", "programming"],
+    "description": "Enterprise-grade communication infrastructure."
+  },
+  {
+    "id": "denovoai",
+    "name": "DeNovo",
+    "class": "dev_tools",
+    "niche": "AI Application Factory",
+    "medium_pub": "denovo",
+    "target_keywords": ["app factory", "ai builder", "low code ai", "boilerplate"],
+    "target_subreddits": ["reactjs", "nextjs", "webdev"],
+    "description": "Accelerated AI application generation."
+  },
+  {
+    "id": "imhoradio",
+    "name": "IMHO Radio",
+    "class": "entertainment",
+    "niche": "AI-Powered Music Station",
+    "medium_pub": "imho",
+    "target_keywords": ["ai radio", "music discovery", "online radio", "ai dj"],
+    "target_subreddits": ["music", "radio", "internetradio"],
+    "description": "Sovereign music station with AI DJ curation."
+  },
+  {
+    "id": "linahla",
+    "name": "Linahla",
+    "class": "medical",
+    "niche": "Maternal and Child Telehealth",
+    "medium_pub": "linahla",
+    "target_keywords": ["maternal health", "telehealth", "guam", "parenting"],
+    "target_subreddits": ["parenting", "health", "guam"],
+    "description": "Virtual care for mothers and children in the Pacific."
+  },
+  {
+    "id": "srvrsup",
+    "name": "Srvrsup",
+    "class": "devops",
+    "niche": "AI-Managed Server Support",
+    "medium_pub": "devops",
+    "target_keywords": ["server management", "devops ai", "sysadmin helper"],
+    "target_subreddits": ["sysadmin", "devops", "linux"],
+    "description": "Automated server monitoring and troubleshooting."
+  }
+]
