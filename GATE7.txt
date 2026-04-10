@@ -1,4 +1,22 @@
 # GATE7 — Neuralia Behavioral Test Suite
+# Neuralia - AI Marketing Automation Platform
+# Core Workflow: Lead scraping → AI triage → Content generation → Multi-channel posting
+
+===================================================================
+SECTION 0: NAVIGATION — ALL TOP-LEVEL ROUTES
+===================================================================
+
+  [ ] /                     → Dashboard page loads with stats
+  [ ] /review/[id]          → Campaign review page loads with editable content
+  [ ] /api/health           → Health check returns 200 OK
+  [ ] /api/scrape           → Scraper endpoint (POST with auth)
+  [ ] /api/triage           → Triage endpoint (POST with auth)
+  [ ] /api/generate         → Generator endpoint (POST with auth)
+  [ ] /api/approve          → Approve campaign endpoint (POST)
+  [ ] /api/reject           → Reject campaign endpoint (POST)
+  [ ] /api/learn            → Learning sync endpoint (POST with auth)
+
+===================================================================
 # Generated: 2026-04-10
 #
 # RULE: "Done" = every checkbox below is ticked from real observation.
