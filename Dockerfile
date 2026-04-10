@@ -19,7 +19,6 @@ EXPOSE 4019
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-RUN mkdir -p ./public
-COPY --from=builder /app/public/* ./public/ 2>/dev/null || true
+COPY --from=builder /app/public ./public
 
 CMD ["node", "server.js"]
