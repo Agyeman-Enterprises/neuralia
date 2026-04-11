@@ -1,0 +1,23 @@
+
+> neuralia@0.1.0 build
+> next build
+
+   Γû▓ Next.js 15.5.15
+   - Environments: .env.local
+   - Experiments (use with caution):
+     ┬╖ serverActions
+
+   Creating an optimized production build ...
+ Γ£ô Compiled successfully in 1166ms
+   Linting and checking validity of types ...
+Failed to compile.
+
+./src/lib/scrapers/linkedin.ts:1:26
+Type error: Cannot find module 'playwright' or its corresponding type declarations.
+
+> 1 | import { chromium } from 'playwright';
+    |                          ^
+  2 | import { db } from '../db/index.js';
+  3 |
+  4 | export async function scrapeLinkedInLeads(query: string) {
+Next.js build worker exited with code: 1 and signal: null
