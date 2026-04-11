@@ -82,8 +82,54 @@ Respond in this exact JSON format (no markdown, no extra text):
       rationale: parsed.rationale ?? '',
     }
   } catch (err) {
-    console.error('[triage] Ollama failed, falling back to keyword match:', err)
-    return fallbackKeywordTriage(lead, products)
+    console.error('[triage] Ollama failed, trying Anthropic:', err)
+    // Anthropic fallback — works reliably on Vercel
+    try {
+      return await anthropicTriage(prompt)
+    } catch (err2) {
+      console.error('[triage] Anthropic also failed, keyword fallback:', err2)
+      return fallbackKeywordTriage(lead, products)
+    }
+  }
+}
+
+// Anthropic fallback when Ollama is unreachable (Vercel → Ollama on Hetzner often times out)
+async function anthropicTriage(prompt: string): Promise<TriageResult> {
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set')
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+    },
+    signal: AbortSignal.timeout(30_000),
+    body: JSON.stringify({
+      model: 'claude-haiku-4-20250414',
+      max_tokens: 200,
+      temperature: 0.1,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
+
+  if (!res.ok) throw new Error(`Anthropic HTTP ${res.status}`)
+  const data = await res.json() as { content: Array<{ type: string; text: string }> }
+  const text = data.content.find(b => b.type === 'text')?.text ?? ''
+  const jsonMatch = text.match(/\{[\s\S]*\}/)
+  if (!jsonMatch) throw new Error('No JSON in Anthropic response')
+
+  const parsed = JSON.parse(jsonMatch[0]) as {
+    score: number
+    matched_product_id: string | null
+    rationale: string
+  }
+
+  return {
+    score: Math.max(0, Math.min(10, Number(parsed.score) || 0)),
+    matched_product_id: parsed.score >= 6 ? (parsed.matched_product_id ?? null) : null,
+    rationale: parsed.rationale ?? '',
   }
 }
 
