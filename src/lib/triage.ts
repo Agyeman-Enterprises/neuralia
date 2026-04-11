@@ -107,7 +107,7 @@ async function anthropicTriage(prompt: string): Promise<TriageResult> {
     },
     signal: AbortSignal.timeout(30_000),
     body: JSON.stringify({
-      model: 'claude-haiku-4-20250414',
+      model: 'claude-sonnet-4-20250514',
       max_tokens: 200,
       temperature: 0.1,
       messages: [{ role: 'user', content: prompt }],
