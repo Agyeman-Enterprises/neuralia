@@ -86,7 +86,7 @@ DEK: [one-sentence subhead expanding on the title and teasing the value]
     let cfPostId: string | null = null
     if (cfSupabase && product.cf_tenant_id) {
       try {
-        const slug = title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').slice(0, 80) + '-' + Date.now().toString(36)
+        const slug = (title ?? 'untitled').toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').slice(0, 80) + '-' + Date.now().toString(36)
         const { data: cfPost } = await cfSupabase
           .from('cf_posts')
           .insert({ tenant_id: product.cf_tenant_id, title, slug, dek, body, status: 'draft', type: product.format })
@@ -123,7 +123,7 @@ DEK: [one-sentence subhead expanding on the title and teasing the value]
       .update({ status: 'pending_approval', updated_at: new Date().toISOString() })
       .eq('id', lead.id)
 
-    return { campaignId: campaign.id, title, dek, body }
+    return { campaignId: campaign.id, title: title ?? 'Untitled', dek, body }
   } catch (err) {
     console.error('[generator] Failed:', err)
     await sb.from('organism_leads')

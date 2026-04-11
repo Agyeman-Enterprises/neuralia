@@ -36,20 +36,30 @@ export async function POST(req: NextRequest) {
       let countDupe = 0
 
       for (const lead of leads) {
-        const { error } = await sb.from('organism_leads').upsert(
-          {
-            source: lead.source,
-            source_url: lead.source_url,
-            source_id: lead.source_id,
-            title: lead.title,
-            body: lead.body ?? null,
-            author: lead.author ?? null,
-            author_url: lead.author_url ?? null,
-            subreddit: lead.subreddit ?? null,
-            score: lead.score ?? null,
-          },
-          { onConflict: 'source,source_id', ignoreDuplicates: true }
-        )
+        // Check if already exists before inserting
+        const { data: existing } = await sb
+          .from('organism_leads')
+          .select('id')
+          .eq('source', lead.source)
+          .eq('source_id', lead.source_id)
+          .maybeSingle()
+
+        if (existing) {
+          countDupe++
+          continue
+        }
+
+        const { error } = await sb.from('organism_leads').insert({
+          source: lead.source,
+          source_url: lead.source_url,
+          source_id: lead.source_id,
+          title: lead.title,
+          body: lead.body ?? null,
+          author: lead.author ?? null,
+          author_url: lead.author_url ?? null,
+          subreddit: lead.subreddit ?? null,
+          score: lead.score ?? null,
+        })
         if (error) countDupe++
         else countNew++
       }

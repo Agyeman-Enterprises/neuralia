@@ -16,6 +16,7 @@ export async function seedUniverse() {
         target_keywords: app.target_keywords,
         target_subreddits: app.target_subreddits,
         description: app.description,
+        active: true,  // explicitly set so getProducts() filter works
       },
       { onConflict: 'id' }
     )

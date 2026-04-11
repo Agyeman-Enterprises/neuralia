@@ -93,7 +93,7 @@ export async function postReddit(campaign: CampaignRow, product: ProductRow): Pr
       ? (product.target_subreddits?.[0] ?? 'healthIT')
       : (product.target_subreddits?.[0] ?? 'SaaS')
 
-    const body = `${campaign.dek ?? ''}\n\n${(campaign.edits_body ?? campaign.body).slice(0, 2000)}`
+    const body = `${campaign.dek ?? ''}\n\n${(campaign.edits_body ?? campaign.body ?? '').slice(0, 2000)}`
 
     const postRes = await fetch(`https://oauth.reddit.com/api/submit`, {
       method: 'POST',
@@ -102,7 +102,7 @@ export async function postReddit(campaign: CampaignRow, product: ProductRow): Pr
         'Content-Type': 'application/x-www-form-urlencoded',
         'User-Agent': 'Neuralia/1.0',
       },
-      body: `kind=self&sr=${subreddit}&title=${encodeURIComponent(campaign.title)}&text=${encodeURIComponent(body)}`,
+      body: `kind=self&sr=${subreddit}&title=${encodeURIComponent(campaign.title ?? 'Untitled')}&text=${encodeURIComponent(body)}`,
     })
     if (!postRes.ok) return null
     const post = await postRes.json() as { json: { data: { id: string; url: string } } }
@@ -122,7 +122,7 @@ export async function postLinkedIn(campaign: CampaignRow, product: ProductRow): 
     console.warn(`[poster] LinkedIn not configured for ${health ? 'health' : 'tech'}`); return null
   }
 
-  const text = `${campaign.title}\n\n${campaign.dek ?? ''}\n\n${(campaign.edits_body ?? campaign.body).slice(0, 1300)}`
+  const text = `${campaign.title ?? ''}\n\n${campaign.dek ?? ''}\n\n${(campaign.edits_body ?? campaign.body ?? '').slice(0, 1300)}`
 
   try {
     const res = await fetch('https://api.linkedin.com/v2/ugcPosts', {
