@@ -35,7 +35,13 @@ const STATUS_COLOR: Record<string, string> = {
 }
 
 async function getData() {
-  const sb = db()
+  let sb
+  try {
+    sb = db()
+  } catch (err) {
+    console.error('[dashboard] db() failed:', err)
+    return { leads: [] as DashRow[], stats: { total_leads: '0', pending: '0', posted: '0', rejected: '0' } as Stats }
+  }
 
   // Fetch leads with product + campaign info via separate queries (no JOINs needed)
   const { data: leads } = await sb
