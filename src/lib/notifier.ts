@@ -17,8 +17,15 @@ export async function notifyAlrtme(
       body: JSON.stringify({
         api_key: key,
         source: 'neuralia',
-        title: `Content Ready: ${product.name}`,
-        message: `"${campaign.title}" — ${campaign.dek ?? 'Review and approve to publish.'}`,
+        title: `${product.name}: ${campaign.title}`,
+        message: [
+          campaign.dek ?? '',
+          '',
+          (campaign.body ?? '').slice(0, 600),
+          '',
+          `---`,
+          `Review & approve: ${APP_URL}/review/${campaign.id}`,
+        ].join('\n').trim(),
         priority: 'high',
         topic: 'content_review',
         url: `${APP_URL}/review/${campaign.id}`,
