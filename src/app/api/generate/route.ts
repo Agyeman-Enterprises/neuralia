@@ -6,7 +6,7 @@ import { verifyCron } from '@/lib/verify-cron'
 import type { LeadRow, ProductRow, CampaignRow } from '@/types'
 
 export const runtime = 'nodejs'
-export const maxDuration = 120
+export const maxDuration = 300
 
 export async function POST(req: NextRequest) {
   if (!verifyCron(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
