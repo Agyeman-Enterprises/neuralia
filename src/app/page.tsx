@@ -26,8 +26,8 @@ interface Stats {
 }
 
 async function getData() {
-  const [leads, stats] = await Promise.all([
-    db.query<DashRow>(
+  const [leadRows, statsRows] = await Promise.all([
+    db.query(
       `SELECT
          l.id, l.source, l.subreddit, l.title as lead_title,
          l.triage_score, l.status, l.created_at, l.updated_at,
@@ -39,7 +39,7 @@ async function getData() {
        ORDER BY l.updated_at DESC
        LIMIT 60`
     ),
-    db.query<Stats>(
+    db.query(
       `SELECT
          COUNT(*)::text as total_leads,
          COUNT(*) FILTER (WHERE status='pending_approval')::text as pending,
@@ -48,7 +48,7 @@ async function getData() {
        FROM organism_leads`
     ),
   ])
-  return { leads: leads.rows, stats: stats.rows[0] }
+  return { leads: leadRows as unknown as DashRow[], stats: (statsRows as unknown as Stats[])[0] }
 }
 
 const STATUS_COLOR: Record<string, string> = {
