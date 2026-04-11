@@ -12,6 +12,9 @@ export interface ProductRow {
   cf_tenant_id: string | null
   medium_account: string | null
   medium_pub: string | null
+  target_keywords: string[] | null
+  target_subreddits: string[] | null
+  description: string | null
   active: boolean
   created_at: string
 }
