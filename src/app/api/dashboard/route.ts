@@ -10,7 +10,7 @@ export async function GET() {
 
     const { data: leads, error } = await sb
       .from('organism_leads')
-      .select('id, source, subreddit, title, triage_score, status, matched_product_id, created_at, updated_at')
+      .select('id, source, subreddit, title, triage_score, status, matched_product_id, scraped_at, updated_at')
       .order('updated_at', { ascending: false })
       .limit(60)
 
