@@ -8,10 +8,7 @@ import type { RawLead } from '@/types'
 export const runtime = 'nodejs'
 export const maxDuration = 300
 
-function verifyCron(req: NextRequest): boolean {
-  const secret = req.headers.get('x-cron-secret') ?? req.nextUrl.searchParams.get('secret')
-  return secret === process.env.NEURALIA_CRON_SECRET
-}
+import { verifyCron } from '@/lib/verify-cron'
 
 export async function POST(req: NextRequest) {
   if (!verifyCron(req)) {

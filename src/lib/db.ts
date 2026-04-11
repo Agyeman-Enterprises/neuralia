@@ -2,8 +2,8 @@ import { Pool } from 'pg'
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: false, // same private network on Hetzner
-  max: 10,
+  ssl: process.env.NODE_ENV === 'production',
+  max: 5,
   idleTimeoutMillis: 30000,
 })
 
