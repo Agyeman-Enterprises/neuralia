@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { queryOne } from '@/lib/db'
-import { db } from '@/lib/db'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -11,7 +10,7 @@ export async function GET(
 ) {
   const { id } = await params
 
-  const rows = await db.query(
+  const r = await queryOne(
     `SELECT
        c.id, c.title, c.dek, c.body, c.status, c.brief, c.created_at,
        c.lead_id, c.product_id, c.edits_body,
@@ -21,14 +20,13 @@ export async function GET(
      FROM organism_campaigns c
      JOIN organism_leads l ON l.id = c.lead_id
      JOIN organism_products p ON p.id = c.product_id
-     WHERE c.id = '${id}'`
+     WHERE c.id = $1`,
+    [id]
   )
 
-  if (!rows[0]) {
+  if (!r) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
-
-  const r = rows[0] as Record<string, unknown>
   return NextResponse.json({
     lead: {
       id: r.lead_id,
