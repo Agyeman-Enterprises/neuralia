@@ -1,6 +1,5 @@
-// POST /api/approve — human approves a campaign and triggers posting
 import { NextRequest, NextResponse } from 'next/server'
-import { queryOne, query } from '@/lib/db'
+import { db } from '@/lib/db'
 import { postMastodon, postMedium } from '@/lib/publisher'
 import type { CampaignRow, LeadRow, ProductRow } from '@/types'
 
@@ -13,78 +12,59 @@ export async function POST(req: NextRequest) {
 
   if (!campaign_id) return NextResponse.json({ error: 'campaign_id required' }, { status: 400 })
 
-  const campaign = await queryOne<CampaignRow>(
-    'SELECT * FROM organism_campaigns WHERE id=$1', [campaign_id]
-  )
+  const sb = db()
+  const { data: campaign } = await sb.from('organism_campaigns').select('*').eq('id', campaign_id).single()
   if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
-  if (campaign.status !== 'draft') {
-    return NextResponse.json({ error: `Campaign already ${campaign.status}` }, { status: 409 })
-  }
+  if (campaign.status !== 'draft') return NextResponse.json({ error: `Campaign already ${campaign.status}` }, { status: 400 })
 
-  const lead = await queryOne<LeadRow>('SELECT * FROM organism_leads WHERE id=$1', [campaign.lead_id])
-  const product = await queryOne<ProductRow>(
-    'SELECT * FROM organism_products WHERE id=$1', [campaign.product_id]
-  )
-  if (!lead || !product) return NextResponse.json({ error: 'Related data not found' }, { status: 404 })
+  const { data: lead } = await sb.from('organism_leads').select('*').eq('id', campaign.lead_id).single()
+  const { data: product } = await sb.from('organism_products').select('*').eq('id', campaign.product_id).single()
+  if (!lead || !product) return NextResponse.json({ error: 'Lead or product not found' }, { status: 404 })
 
-  // Save the approved body (use human edits if provided)
-  await query(
-    `UPDATE organism_campaigns SET
-       status='approved', approved_at=NOW(), approved_by=$1,
-       edits_body=$2, updated_at=NOW()
-     WHERE id=$3`,
-    [approved_by ?? 'human', edits_body ?? null, campaign_id]
-  )
-  await query(
-    `UPDATE organism_leads SET status='approved', updated_at=NOW() WHERE id=$1`,
-    [campaign.lead_id]
-  )
+  // Approve
+  await sb.from('organism_campaigns').update({
+    status: 'approved', approved_at: new Date().toISOString(),
+    approved_by: approved_by ?? 'akua', edits_body: edits_body ?? null,
+    updated_at: new Date().toISOString(),
+  }).eq('id', campaign_id)
 
-  // Apply edits to campaign object for publishing
-  const publishCampaign = { ...campaign, edits_body: edits_body ?? null }
+  await sb.from('organism_leads').update({
+    status: 'approved', updated_at: new Date().toISOString(),
+  }).eq('id', lead.id)
 
-  // Post to channels in parallel
+  // Apply edits if provided
+  const campaignWithEdits = edits_body
+    ? { ...campaign, body: edits_body } as CampaignRow
+    : campaign as CampaignRow
   const posted: string[] = []
-  const postResults = await Promise.allSettled([
-    postMastodon(publishCampaign, product),
-    postMedium(publishCampaign, product),
-  ])
 
-  const channels = ['mastodon', 'medium']
-  for (let i = 0; i < postResults.length; i++) {
-    const result = postResults[i]
-    const channel = channels[i]
-    if (result.status === 'fulfilled' && result.value) {
-      await query(
-        `INSERT INTO organism_posts_log (campaign_id, channel, external_id, external_url)
-         VALUES ($1,$2,$3,$4)`,
-        [campaign_id, channel, result.value.external_id, result.value.external_url]
-      )
-      posted.push(channel)
-    } else if (result.status === 'rejected') {
-      await query(
-        `INSERT INTO organism_posts_log (campaign_id, channel, error) VALUES ($1,$2,$3)`,
-        [campaign_id, channel, String(result.reason)]
-      )
-    } else if (result.status === 'fulfilled' && !result.value) {
-      // Null result = token not set — log as skipped
-      await query(
-        `INSERT INTO organism_posts_log (campaign_id, channel, error) VALUES ($1,$2,'token_not_configured')`,
-        [campaign_id, channel]
-      )
+  // Mastodon
+  try {
+    const result = await postMastodon(campaignWithEdits, product as ProductRow)
+    if (result) {
+      await sb.from('organism_posts_log').insert({ campaign_id, channel: 'mastodon', external_id: result.external_id, external_url: result.external_url })
+      posted.push('mastodon')
     }
+  } catch (err) {
+    await sb.from('organism_posts_log').insert({ campaign_id, channel: 'mastodon', error: err instanceof Error ? err.message : 'failed' })
   }
 
+  // Medium
+  try {
+    const result = await postMedium(campaignWithEdits, product as ProductRow)
+    if (result) {
+      await sb.from('organism_posts_log').insert({ campaign_id, channel: 'medium', external_id: result.external_id, external_url: result.external_url })
+      posted.push('medium')
+    }
+  } catch (err) {
+    await sb.from('organism_posts_log').insert({ campaign_id, channel: 'medium', error: err instanceof Error ? err.message : 'failed' })
+  }
+
+  // Mark posted
   if (posted.length > 0) {
-    await query(
-      `UPDATE organism_campaigns SET status='posted', updated_at=NOW() WHERE id=$1`,
-      [campaign_id]
-    )
-    await query(
-      `UPDATE organism_leads SET status='posted', updated_at=NOW() WHERE id=$1`,
-      [campaign.lead_id]
-    )
+    await sb.from('organism_campaigns').update({ status: 'posted', updated_at: new Date().toISOString() }).eq('id', campaign_id)
+    await sb.from('organism_leads').update({ status: 'posted', updated_at: new Date().toISOString() }).eq('id', lead.id)
   }
 
-  return NextResponse.json({ ok: true, posted, campaign_id })
+  return NextResponse.json({ ok: true, posted })
 }

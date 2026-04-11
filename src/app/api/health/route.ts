@@ -1,16 +1,24 @@
 import { NextResponse } from 'next/server'
+import { db } from '@/lib/db'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const hasDb = !!process.env.DATABASE_URL
-  const hasAnthropic = !!process.env.ANTHROPIC_API_KEY
-  const hasAlrtme = !!process.env.ALRTME_API_KEY
-  return NextResponse.json({
-    ok: hasDb && hasAnthropic,
-    service: 'neuralia',
-    config: { db: hasDb, anthropic: hasAnthropic, alrtme: hasAlrtme },
-    ts: new Date().toISOString(),
-  })
+  try {
+    const sb = db()
+    const { count, error } = await sb.from('organism_products').select('id', { count: 'exact', head: true })
+    if (error) throw error
+    return NextResponse.json({
+      ok: true,
+      service: 'neuralia',
+      products: count ?? 0,
+      ts: new Date().toISOString(),
+    })
+  } catch (err) {
+    return NextResponse.json({
+      ok: false,
+      error: err instanceof Error ? err.message : 'unknown',
+    }, { status: 503 })
+  }
 }

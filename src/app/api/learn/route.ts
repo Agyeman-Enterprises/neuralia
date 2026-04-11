@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { query } from '@/lib/db'
-import type { LeadRow } from '@/types'
+import { db } from '@/lib/db'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
 
-// Nightly learning — embed approved campaigns into AQUI for future intelligence
 export async function POST(req: NextRequest) {
   const secret = req.headers.get('x-cron-secret') ?? req.nextUrl.searchParams.get('secret')
   if (secret !== process.env.NEURALIA_CRON_SECRET) {
@@ -14,84 +12,42 @@ export async function POST(req: NextRequest) {
 
   const aquiUrl = process.env.AQUI_BASE_URL
   const aquiKey = process.env.AQUI_API_KEY
-
   if (!aquiUrl || !aquiKey) {
-    return NextResponse.json({ ok: false, reason: 'AQUI not configured' })
+    return NextResponse.json({ error: 'AQUI not configured' }, { status: 500 })
   }
 
-  // Get recently posted campaigns
-  const rows = await query<{
-    campaign_id: string
-    title: string
-    body: string
-    product_name: string
-    product_class: string
-    niche: string
-    posted_channels: string
-    posted_at: string
-    lead_source: string
-    triage_score: number
-    triage_rationale: string
-  }>(
-    `SELECT
-       c.id as campaign_id, c.title, c.body, c.created_at,
-       p.name as product_name, p.class as product_class, p.niche,
-       l.source as lead_source, l.triage_score, l.triage_rationale,
-       STRING_AGG(pl.channel, ', ') as posted_channels,
-       MAX(pl.posted_at)::text as posted_at
-     FROM organism_campaigns c
-     JOIN organism_products p ON p.id = c.product_id
-     JOIN organism_leads l ON l.id = c.lead_id
-     LEFT JOIN organism_posts_log pl ON pl.campaign_id = c.id
-     WHERE c.status = 'posted'
-       AND c.updated_at > NOW() - INTERVAL '7 days'
-     GROUP BY c.id, c.title, c.body, c.created_at,
-              p.name, p.class, p.niche, l.source, l.triage_score, l.triage_rationale
-     ORDER BY c.created_at DESC
-     LIMIT 50`
-  )
+  const sb = db()
+
+  // Get recently posted campaigns with full context
+  const { data: campaigns } = await sb
+    .from('organism_campaigns')
+    .select('id, title, body, created_at, product_id, lead_id')
+    .eq('status', 'posted')
+    .gte('updated_at', new Date(Date.now() - 7 * 86400000).toISOString())
+    .order('created_at', { ascending: false })
+    .limit(50)
+
+  if (!campaigns || campaigns.length === 0) {
+    return NextResponse.json({ ok: true, synced: 0, message: 'No recent posted campaigns' })
+  }
 
   let synced = 0
-  for (const row of rows) {
+  for (const c of campaigns) {
     try {
-      // Send to AQUI as a structured memory item
-      const content = `
-NEURALIA MARKETING CAMPAIGN — ${row.product_name} (${row.product_class})
-Posted: ${row.posted_at} via ${row.posted_channels}
-Lead source: ${row.lead_source} | Triage score: ${row.triage_score}/10
-Triage rationale: ${row.triage_rationale}
-Niche: ${row.niche}
-
-TITLE: ${row.title}
-
-CONTENT:
-${row.body.slice(0, 2000)}
-`.trim()
-
-      await fetch(`${aquiUrl}/api/ingest`, {
+      await fetch(`${aquiUrl}/ingest`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': aquiKey,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${aquiKey}` },
         body: JSON.stringify({
-          source: 'neuralia',
-          type: 'marketing_campaign',
-          title: `Neuralia: ${row.product_name} — ${row.title}`,
-          content,
-          metadata: {
-            campaign_id: row.campaign_id,
-            product: row.product_name,
-            channels: row.posted_channels,
-            posted_at: row.posted_at,
-          },
+          content: `Neuralia published: "${c.title}" for product ${c.product_id}. Content: ${(c.body ?? '').slice(0, 500)}`,
+          source: 'neuralia_learn',
+          importance: 6,
         }),
       })
       synced++
-    } catch (err) {
-      console.error('[learn] AQUI sync failed for', row.campaign_id, err)
+    } catch {
+      // non-fatal
     }
   }
 
-  return NextResponse.json({ ok: true, synced, total: rows.length })
+  return NextResponse.json({ ok: true, synced, total: campaigns.length })
 }

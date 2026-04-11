@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { queryOne } from '@/lib/db'
+import { db } from '@/lib/db'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -9,51 +9,32 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
+  const sb = db()
 
-  const r = await queryOne(
-    `SELECT
-       c.id, c.title, c.dek, c.body, c.status, c.brief, c.created_at,
-       c.lead_id, c.product_id, c.edits_body,
-       l.source, l.source_url, l.title as lead_title, l.body as lead_body,
-       l.author, l.subreddit, l.score, l.triage_score, l.triage_rationale,
-       p.name as product_name, p.class as product_class, p.niche, p.medium_pub
-     FROM organism_campaigns c
-     JOIN organism_leads l ON l.id = c.lead_id
-     JOIN organism_products p ON p.id = c.product_id
-     WHERE c.id = $1`,
-    [id]
-  )
+  // Fetch campaign, lead, product in parallel
+  const { data: campaign } = await sb.from('organism_campaigns').select('*').eq('id', id).single()
+  if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  if (!r) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  }
+  const [{ data: lead }, { data: product }] = await Promise.all([
+    sb.from('organism_leads').select('*').eq('id', campaign.lead_id).single(),
+    sb.from('organism_products').select('*').eq('id', campaign.product_id).single(),
+  ])
+
   return NextResponse.json({
-    lead: {
-      id: r.lead_id,
-      source: r.source,
-      source_url: r.source_url,
-      title: r.lead_title,
-      body: r.lead_body,
-      author: r.author,
-      subreddit: r.subreddit,
-      score: r.score,
-      triage_score: r.triage_score,
-      triage_rationale: r.triage_rationale,
-    },
+    lead: lead ? {
+      id: lead.id, source: lead.source, source_url: lead.source_url,
+      title: lead.title, body: lead.body, author: lead.author,
+      subreddit: lead.subreddit, score: lead.score,
+      triage_score: lead.triage_score, triage_rationale: lead.triage_rationale,
+    } : null,
     campaign: {
-      id: r.id,
-      title: r.title,
-      dek: r.dek,
-      body: r.edits_body ?? r.body,
-      status: r.status,
-      created_at: r.created_at,
+      id: campaign.id, title: campaign.title, dek: campaign.dek,
+      body: campaign.body, status: campaign.status, brief: campaign.brief,
+      edits_body: campaign.edits_body, created_at: campaign.created_at,
     },
-    product: {
-      id: r.product_id,
-      name: r.product_name,
-      class: r.product_class,
-      niche: r.niche,
-      medium_pub: r.medium_pub,
-    },
+    product: product ? {
+      name: product.name, class: product.class,
+      niche: product.niche, medium_pub: product.medium_pub,
+    } : null,
   })
 }
