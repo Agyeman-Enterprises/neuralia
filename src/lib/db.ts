@@ -1,8 +1,14 @@
 import { Pool } from 'pg'
+import tls from 'tls'
 
+// Supabase pooler uses certs that pg's default verify-full rejects.
+// Use a custom TLS context that connects over TLS but skips CA verification,
+// matching sslmode=require behavior (encrypted, not CA-verified).
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production',
+  ssl: process.env.NODE_ENV === 'production'
+    ? { secureContext: tls.createSecureContext(), checkServerIdentity: () => undefined }
+    : false,
   max: 5,
   idleTimeoutMillis: 30000,
 })
