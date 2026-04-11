@@ -4,7 +4,7 @@ import apps from '../../../data/apps_universe.json';
 export async function seedUniverse() {
   const client = new Client({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+    ssl: process.env.NODE_ENV === 'production'
   });
 
   try {
@@ -13,7 +13,7 @@ export async function seedUniverse() {
 
     for (const app of apps) {
       await client.query(`
-        INSERT INTO organism.products (
+        INSERT INTO organism_products (
           id, name, class, niche, medium_pub, target_keywords, target_subreddits, description
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8
