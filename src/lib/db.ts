@@ -1,8 +1,9 @@
 import { Pool } from 'pg'
 
+// Supabase transaction pooler (port 6543) handles SSL at connection-string level
+// via ?sslmode=no-verify. No additional ssl config needed in Pool options.
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : false,
   max: 5,
   idleTimeoutMillis: 30000,
 })
