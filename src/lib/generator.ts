@@ -1,15 +1,14 @@
 // ── Generator: build brief → call Claude → write to CF Supabase + local DB ─
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
-import { query } from './db'
+import { query, supabase as neuraliaDb } from './db'
 import type { LeadRow, ProductRow, CampaignRow } from '@/types'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-const cfSupabase = createClient(
-  process.env.CF_SUPABASE_URL!,
-  process.env.CF_SUPABASE_SERVICE_ROLE_KEY!
-)
+const cfSupabase = process.env.CF_SUPABASE_URL && process.env.CF_SUPABASE_SERVICE_ROLE_KEY
+  ? createClient(process.env.CF_SUPABASE_URL, process.env.CF_SUPABASE_SERVICE_ROLE_KEY)
+  : null
 
 const FORMAT_INSTRUCTIONS: Record<string, string> = {
   full_post:  'Write a comprehensive long-form blog post with an intro, 4-6 sections with ## headers, and a conclusion. 800-1200 words. Markdown.',
@@ -73,53 +72,60 @@ DEK: [one-sentence subhead expanding on the title and teasing the value]
 
     // Write draft to ContentForge Supabase (cf_posts table)
     let cfPostId: string | null = null
-    if (product.cf_tenant_id) {
-      const slug = title
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .slice(0, 80) + '-' + Date.now().toString(36)
+    if (cfSupabase && product.cf_tenant_id) {
+      try {
+        const slug = title
+          .toLowerCase()
+          .replace(/[^a-z0-9\s-]/g, '')
+          .replace(/\s+/g, '-')
+          .slice(0, 80) + '-' + Date.now().toString(36)
 
-      const { data: cfPost } = await cfSupabase
-        .from('cf_posts')
-        .insert({
-          tenant_id: product.cf_tenant_id,
-          title,
-          slug,
-          dek,
-          body,
-          status: 'draft',
-          type: product.format,
-        })
-        .select('id')
-        .single()
-      cfPostId = cfPost?.id ?? null
+        const { data: cfPost } = await cfSupabase
+          .from('cf_posts')
+          .insert({ tenant_id: product.cf_tenant_id, title, slug, dek, body, status: 'draft', type: product.format })
+          .select('id')
+          .single()
+        cfPostId = cfPost?.id ?? null
+      } catch (cfErr) {
+        console.warn('[generator] ContentForge write failed (non-fatal):', cfErr)
+      }
     }
 
-    // Write campaign to Neuralia DB
-    const rows = await query<CampaignRow>(
-      `INSERT INTO organism_campaigns
-         (lead_id, product_id, title, dek, body, brief, status, cf_post_id)
-       VALUES ($1,$2,$3,$4,$5,$6,'draft',$7)
-       RETURNING *`,
-      [lead.id, product.id, title, dek, body, brief, cfPostId]
-    )
+    // Write campaign to Neuralia DB via Supabase JS (avoids SQL escaping issues)
+    const db = neuraliaDb
+    const { data: campaign, error: insertErr } = await db
+      .from('organism_campaigns')
+      .insert({
+        lead_id: lead.id,
+        product_id: product.id,
+        title,
+        dek,
+        body,
+        brief,
+        status: 'draft',
+        cf_post_id: cfPostId,
+      })
+      .select('*')
+      .single()
 
-    const campaign = rows[0]
+    if (insertErr || !campaign) {
+      console.error('[generator] Campaign insert failed:', insertErr?.message)
+      throw new Error(`Campaign insert failed: ${insertErr?.message}`)
+    }
 
     // Advance lead status
-    await query(
-      `UPDATE organism_leads SET status='pending_approval', updated_at=NOW() WHERE id=$1`,
-      [lead.id]
-    )
+    await db
+      .from('organism_leads')
+      .update({ status: 'pending_approval', updated_at: new Date().toISOString() })
+      .eq('id', lead.id)
 
     return { campaignId: campaign.id, title, dek, body }
   } catch (err) {
     console.error('[generator] Failed:', err)
-    await query(
-      `UPDATE organism_leads SET status='failed', updated_at=NOW() WHERE id=$1`,
-      [lead.id]
-    )
+    await neuraliaDb
+      .from('organism_leads')
+      .update({ status: 'failed', updated_at: new Date().toISOString() })
+      .eq('id', lead.id)
     return null
   }
 }
