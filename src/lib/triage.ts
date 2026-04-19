@@ -122,8 +122,7 @@ export async function saveTriage(leadId: string, result: TriageResult): Promise<
       triage_score: result.score,
       triage_rationale: result.rationale,
       triage_at: new Date().toISOString(),
-      status: 'rejected',
-      reject_reason: 'Low triage score',
+      status: 'provisional',
       updated_at: new Date().toISOString(),
     }).eq('id', leadId)
   } else {

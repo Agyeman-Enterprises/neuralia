@@ -48,6 +48,7 @@ export type LeadStatus =
   | 'triaged'
   | 'generating'
   | 'pending_approval'
+  | 'provisional'
   | 'approved'
   | 'rejected'
   | 'posted'
@@ -74,9 +75,10 @@ export interface CampaignRow {
   brief: string | null
   cf_post_id: string | null
   edits_body: string | null
+  priority: number        // default 0 — higher = post first
 }
 
-export type CampaignStatus = 'draft' | 'approved' | 'rejected' | 'posted'
+export type CampaignStatus = 'draft' | 'provisional' | 'approved' | 'rejected' | 'posted'
 
 export interface PostLogRow {
   id: string              // uuid

@@ -26,9 +26,9 @@ export async function GET() {
     // Get campaign IDs
     const leadIds = (leads ?? []).map(l => l.id)
     const { data: campaigns } = leadIds.length > 0
-      ? await sb.from('organism_campaigns').select('id, lead_id, status').in('lead_id', leadIds)
+      ? await sb.from('organism_campaigns').select('id, lead_id, status, priority').in('lead_id', leadIds)
       : { data: [] }
-    const campaignMap = new Map((campaigns ?? []).map(c => [c.lead_id, { id: c.id, status: c.status }]))
+    const campaignMap = new Map((campaigns ?? []).map(c => [c.lead_id, { id: c.id, status: c.status, priority: c.priority ?? 0 }]))
 
     const rows = (leads ?? []).map(l => ({
       id: l.id,
@@ -41,6 +41,7 @@ export async function GET() {
       product_name: productMap.get(l.matched_product_id) ?? null,
       campaign_id: campaignMap.get(l.id)?.id ?? null,
       campaign_status: campaignMap.get(l.id)?.status ?? null,
+      campaign_priority: campaignMap.get(l.id)?.priority ?? 0,
     }))
 
     return NextResponse.json({ ok: true, leads: rows, count: rows.length })

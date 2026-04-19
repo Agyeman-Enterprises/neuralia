@@ -15,7 +15,9 @@ export async function POST(req: NextRequest) {
   const sb = db()
   const { data: campaign } = await sb.from('organism_campaigns').select('*').eq('id', campaign_id).single()
   if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
-  if (campaign.status !== 'draft') return NextResponse.json({ error: `Campaign already ${campaign.status}` }, { status: 400 })
+  if (!['draft', 'provisional', 'rejected'].includes(campaign.status)) {
+    return NextResponse.json({ error: `Campaign already ${campaign.status}` }, { status: 400 })
+  }
 
   const { data: product } = await sb.from('organism_products').select('*').eq('id', campaign.product_id).single()
   if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 })

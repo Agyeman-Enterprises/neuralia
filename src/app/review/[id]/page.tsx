@@ -82,6 +82,27 @@ export default function ReviewPage() {
     }
   }, [data])
 
+  const restore = useCallback(async () => {
+    if (!data) return
+    setWorking(true)
+    try {
+      const res = await fetch('/api/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaign_id: data.campaign.id }),
+      })
+      if (!res.ok) throw new Error('Restore failed')
+      // Reload with updated status
+      const updated = await fetch(`/api/review/${id}`).then(r => r.json()) as ReviewData
+      setData(updated)
+      setEditedBody(updated.campaign.body)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Restore failed')
+    } finally {
+      setWorking(false)
+    }
+  }, [data, id])
+
   if (loading) return (
     <div style={styles.shell}>
       <div style={styles.spinner} />
@@ -168,11 +189,18 @@ export default function ReviewPage() {
       {!done ? (
         <div style={styles.actions}>
           {error && <p style={{ color: '#f87171', fontSize: 13 }}>{error}</p>}
-          <button style={styles.btnReject} onClick={reject} disabled={working}>
-            {working ? '…' : '✕ Reject'}
-          </button>
+          {['rejected', 'provisional'].includes(data.campaign.status) && (
+            <button style={styles.btnRestore} onClick={restore} disabled={working} title="Move back to draft for fresh review">
+              {working ? '…' : '↩ Restore to Draft'}
+            </button>
+          )}
+          {data.campaign.status !== 'rejected' && (
+            <button style={styles.btnReject} onClick={reject} disabled={working}>
+              {working ? '…' : '✕ Reject'}
+            </button>
+          )}
           <button style={styles.btnApprove} onClick={approve} disabled={working}>
-            {working ? 'Posting…' : '✓ Approve & Post'}
+            {working ? 'Posting…' : data.campaign.status === 'rejected' ? '↩ Override & Post' : '✓ Approve & Post'}
           </button>
         </div>
       ) : (
@@ -218,6 +246,10 @@ const styles: Record<string, React.CSSProperties> = {
   },
   btnReject: {
     background: 'transparent', color: '#f87171', border: '1px solid #f8717155',
+    borderRadius: 12, padding: '12px 22px', fontSize: 15, fontWeight: 600, cursor: 'pointer',
+  },
+  btnRestore: {
+    background: 'transparent', color: '#a78bfa', border: '1px solid #a78bfa55',
     borderRadius: 12, padding: '12px 22px', fontSize: 15, fontWeight: 600, cursor: 'pointer',
   },
   btnBack: {
