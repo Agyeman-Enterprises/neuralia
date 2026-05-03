@@ -8,8 +8,9 @@ const RSS_FEEDS = (process.env.RSS_FEEDS ?? '')
 
 // ── Reddit ────────────────────────────────────────────────────────────────
 
-export async function scrapeReddit(): Promise<RawLead[]> {
+export async function scrapeReddit(): Promise<{ leads: RawLead[]; errors: string[] }> {
   const leads: RawLead[] = []
+  const errors: string[] = []
 
   for (const sub of REDDIT_SUBREDDITS) {
     try {
@@ -35,12 +36,12 @@ export async function scrapeReddit(): Promise<RawLead[]> {
           })
         }
       }
-    } catch {
-      // partial results ok — route logs per-source errors to scrape_log
+    } catch (e) {
+      errors.push(`r/${sub}: ${e instanceof Error ? e.message : 'network error'}`)
     }
   }
 
-  return leads
+  return { leads, errors }
 }
 
 interface RedditPost {
@@ -81,8 +82,10 @@ export async function scrapeHN(): Promise<RawLead[]> {
 
 // ── RSS Feeds ─────────────────────────────────────────────────────────────
 
-export async function scrapeRSS(): Promise<RawLead[]> {
+export async function scrapeRSS(): Promise<{ leads: RawLead[]; errors: string[] }> {
   const leads: RawLead[] = []
+  const errors: string[] = []
+
   for (const feedUrl of RSS_FEEDS) {
     try {
       const res = await fetch(feedUrl, { signal: AbortSignal.timeout(8_000) })
@@ -108,11 +111,11 @@ export async function scrapeRSS(): Promise<RawLead[]> {
           body: desc.replace(/<[^>]+>/g, '').slice(0, 1500),
         })
       }
-    } catch {
-      // partial results ok — route logs per-source errors to scrape_log
+    } catch (e) {
+      errors.push(`${feedUrl}: ${e instanceof Error ? e.message : 'network error'}`)
     }
   }
-  return leads
+  return { leads, errors }
 }
 
 // ── Apollo.io ─────────────────────────────────────────────────────────────

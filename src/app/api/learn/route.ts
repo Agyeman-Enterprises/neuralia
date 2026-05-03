@@ -32,9 +32,10 @@ export async function POST(req: NextRequest) {
   }
 
   let synced = 0
+  const failedIds: string[] = []
   for (const c of campaigns) {
     try {
-      await fetch(`${aquiUrl}/ingest`, {
+      const res = await fetch(`${aquiUrl}/ingest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${aquiKey}` },
         body: JSON.stringify({
@@ -42,12 +43,14 @@ export async function POST(req: NextRequest) {
           source: 'neuralia_learn',
           importance: 6,
         }),
+        signal: AbortSignal.timeout(10_000),
       })
-      synced++
-    } catch {
-      // non-fatal
+      if (res.ok) synced++
+      else failedIds.push(c.id)
+    } catch (e) {
+      failedIds.push(`${c.id}:${e instanceof Error ? e.message : 'network'}`)
     }
   }
 
-  return NextResponse.json({ ok: true, synced, total: campaigns.length })
+  return NextResponse.json({ ok: true, synced, failed: failedIds.length, total: campaigns.length, ...(failedIds.length > 0 ? { failed_ids: failedIds } : {}) })
 }

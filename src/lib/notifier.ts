@@ -35,7 +35,11 @@ export async function notifyAlrtme(
     if (!res.ok) return null
     const data = await res.json()
     return data.alertId ?? null
-  } catch {
+  } catch (e) {
+    await db().from('organism_posts_log').insert({
+      campaign_id: campaign.id, channel: 'alrtme_notify',
+      error: e instanceof Error ? e.message : 'network error',
+    })
     return null
   }
 }
@@ -63,7 +67,11 @@ export async function notifyNexus(
     if (!res.ok) return null
     const data = await res.json()
     return data.id ?? null
-  } catch {
+  } catch (e) {
+    await db().from('organism_posts_log').insert({
+      campaign_id: campaign.id, channel: 'nexus_notify',
+      error: e instanceof Error ? e.message : 'network error',
+    })
     return null
   }
 }

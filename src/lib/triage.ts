@@ -67,12 +67,14 @@ Respond in this exact JSON format (no markdown, no extra text):
       matched_product_id: parsed.score >= 6 ? (parsed.matched_product_id ?? null) : null,
       rationale: parsed.rationale ?? '',
     }
-  } catch {
-    // Anthropic fallback
+  } catch (e) {
+    const ollamaErr = e instanceof Error ? e.message : 'unavailable'
     try {
       return await anthropicTriage(prompt)
-    } catch {
-      return fallbackKeywordTriage(lead, products)
+    } catch (e2) {
+      const anthropicErr = e2 instanceof Error ? e2.message : 'unavailable'
+      const result = fallbackKeywordTriage(lead, products)
+      return { ...result, rationale: `[ollama:${ollamaErr}][anthropic:${anthropicErr}] ${result.rationale}` }
     }
   }
 }

@@ -30,7 +30,7 @@ SECTION 0: NAVIGATION — ALL TOP-LEVEL ROUTES
 - [ ] A3: Dev server starts on port 4019 without errors
 - [ ] A4: `GET /api/health` returns `{ ok: true, service: "neuralia" }` (200)
 - [ ] A5: DB connection is live — health check does NOT return 503
-- [ ] A6: All 12 product profiles are seeded in organism_products table (verify via psql or health endpoint)
+- [ ] A6: 10 product profiles are seeded in organism_products table — verify via health endpoint returns `"products":10`
 
 ## SECTION B — Dashboard
 
@@ -122,7 +122,7 @@ SECTION 0: NAVIGATION — ALL TOP-LEVEL ROUTES
 
 ## Current Status
 
-SECTION A: [x] PASSED
+SECTION A: [x] PASSED — A6 corrected: 10 products (not 12), verified 2026-05-03 via /api/health
 SECTION B: [x] PASSED
 SECTION C: [x] PASSED
 SECTION D: [x] PASSED

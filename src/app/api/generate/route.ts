@@ -28,9 +28,7 @@ export async function POST(req: NextRequest) {
 
     const { data: campaign } = await sb.from('organism_campaigns').select('*').eq('id', result.campaignId).single()
     if (campaign) {
-      await notifyAll(lead as LeadRow, campaign as CampaignRow, product as ProductRow).catch(err =>
-        console.error('[generate] notifyAll failed (non-fatal):', err)
-      )
+      await notifyAll(lead as LeadRow, campaign as CampaignRow, product as ProductRow)
     }
 
     return NextResponse.json({
@@ -40,9 +38,7 @@ export async function POST(req: NextRequest) {
       review_url: `${process.env.NEXT_PUBLIC_APP_URL}/review/${result.campaignId}`,
     })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error('[generate] FATAL:', msg)
-    return NextResponse.json({ error: msg }, { status: 500 })
+    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 })
   }
 }
 
@@ -74,7 +70,7 @@ export async function GET(req: NextRequest) {
         const result = await generateCampaign(lead as LeadRow, product as ProductRow)
         if (result) {
           const { data: campaign } = await sb.from('organism_campaigns').select('*').eq('id', result.campaignId).single()
-          if (campaign) await notifyAll(lead as LeadRow, campaign as CampaignRow, product as ProductRow).catch(() => {})
+          if (campaign) await notifyAll(lead as LeadRow, campaign as CampaignRow, product as ProductRow)
           generated++
         }
       } catch (err) {

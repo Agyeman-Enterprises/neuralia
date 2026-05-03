@@ -19,10 +19,11 @@ export async function POST(req: NextRequest) {
 
   const scrapeJobs = sources.map(async (src) => {
     let leads: RawLead[] = []
+    let sourceErrors: string[] = []
     try {
-      if (src === 'reddit') leads = await scrapeReddit()
+      if (src === 'reddit') { const r = await scrapeReddit(); leads = r.leads; sourceErrors = r.errors }
       else if (src === 'hn') leads = await scrapeHN()
-      else if (src === 'rss') leads = await scrapeRSS()
+      else if (src === 'rss') { const r = await scrapeRSS(); leads = r.leads; sourceErrors = r.errors }
       else if (src === 'apollo') {
         const { data: products } = await sb
           .from('organism_products')
@@ -64,10 +65,11 @@ export async function POST(req: NextRequest) {
         else countNew++
       }
 
+      const logError = sourceErrors.length > 0 ? sourceErrors.join(' | ') : null
       await sb.from('organism_scrape_log').insert({
-        source: src, count_new: countNew, count_dupe: countDupe,
+        source: src, count_new: countNew, count_dupe: countDupe, error: logError,
       })
-      results[src] = { new: countNew, dupes: countDupe }
+      results[src] = { new: countNew, dupes: countDupe, ...(logError ? { error: logError } : {}) }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error'
       results[src] = { new: 0, dupes: 0, error: msg }
@@ -83,11 +85,12 @@ export async function POST(req: NextRequest) {
 
   // Kick triage for new leads
   if (totalNew > 0) {
-    fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/triage`, {
+    const triageKicked = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/triage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-cron-secret': process.env.NEURALIA_CRON_SECRET! },
       body: JSON.stringify({ batch_size: Math.min(totalNew, 30) }),
-    }).catch(err => console.error('[scrape] Failed to kick triage:', err))
+    }).then(r => r.ok).catch(() => false)
+    if (!triageKicked) results['triage_kick'] = { new: 0, dupes: 0, error: 'kick failed — will run on next cron' }
   }
 
   return NextResponse.json({ ok: true, results, total_new: totalNew })
