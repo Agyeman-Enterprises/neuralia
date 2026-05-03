@@ -1,54 +1,49 @@
 # PLAN.md
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
-<!-- AGYEMAN ENTERPRISES — MANDATORY PRE-WORK PLAN                         -->
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
 
 ## APP:
 Neuralia
 
 ## TASK:
-Fix all silent catch blocks and console.error calls flagged by OO gate review; correct GATE7.txt product count to match live DB.
+Wire Stratova + ContentForge discovery integration at triage time; add auto-approve/publish for leads scoring ≥ 8 on products with prior approved campaigns.
 
 ## IN SCOPE:
-- src/lib/triage.ts
-- src/lib/scraper.ts
-- src/lib/notifier.ts
-- src/app/api/learn/route.ts
-- src/app/api/scrape/route.ts
-- src/app/api/generate/route.ts
-- GATE7.txt
+- src/lib/stratova.ts (NEW — Stratova push client)
+- src/lib/cf-discovery.ts (NEW — CF rss_items opportunity push)
+- src/app/api/triage/route.ts (add Stratova + CF push; fix console.error)
+- src/app/api/generate/route.ts (add auto-approve logic for score ≥ 8 + prior approvals)
+- .env.local (add STRATOVA_SUPABASE_URL + STRATOVA_SUPABASE_SERVICE_ROLE_KEY)
+- .env.example (document same)
+- GATE7.txt (add Section M — Integration gates)
 
 ## OUT OF SCOPE:
-- Do NOT touch any other API routes
-- Do NOT add new database tables or columns
-- Do NOT change the authentication flow
-- Do NOT refactor generator.ts, publisher.ts, or any other lib files
-- Do NOT change Playwright tests or e2e specs
-- Do NOT change tsconfig.json, next.config.ts, or package.json
+- Do NOT touch approve/route.ts, reject/route.ts, or publisher.ts
+- Do NOT modify Stratova or ContentForge codebases
+- Do NOT add new organism_* DB tables or columns
+- Do NOT change the dashboard UI
+- Do NOT change the review page
 
 ## MUST DELIVER:
-- [ ] Every bare `catch { }` in the 6 src files replaced with observable error handling (DB log write or typed result propagation)
-- [ ] Every `console.error` call removed from production code paths
-- [ ] GATE7.txt §A6 updated to reflect actual product count with evidence
-- [ ] `npx tsc --noEmit` exits 0 after changes
-- [ ] `npx playwright test` still passes 7/10 (3 skips are data-conditional, not failures)
+- [ ] When a lead qualifies (score ≥ 6), a crm_contacts row appears in Stratova Supabase for the matched product entity
+- [ ] When a lead qualifies (score ≥ 6) and the product has a CF tenant, a cf_rss_items row appears with signal_type='opportunity'
+- [ ] When score ≥ 8 AND matched product has ≥ 1 prior approved/posted campaign, generate auto-approves and publishes without human review
+- [ ] npx tsc --noEmit exits 0
+- [ ] npx playwright test still 7/10 pass (3 data-skips unchanged)
 
 ## DATABASE CHANGES:
-NONE — only uses existing organism_scrape_log.error, organism_posts_log columns already in schema
+NONE — writes to existing Stratova and CF Supabase projects, no new organism_* tables
 
 ## NEW DEPENDENCIES:
-NONE
+NONE — @supabase/supabase-js already installed
 
 ## WHAT I WILL NOT DO:
-- I will not merge, rename, or restructure any service not in this plan
-- I will not remove UI components or pages
+- I will not modify Stratova or ContentForge application code
+- I will not create new organism_* tables (all writes go to existing tables in external projects)
 - I will not mark gates N/A to hide missing features
-- I will not declare done without OO_COMPLETE.json
-- I will not approve this plan myself — OO approves it
 
 ## RISK ASSESSMENT:
-- scraper.ts return type change (RawLead[] → { leads, errors }) requires updating scrape/route.ts import side — must update both atomically or TypeScript will catch the mismatch
-- notifier.ts writes to organism_posts_log on failure — if that table insert fails, error propagates to caller; caller (generate/route.ts) handles it in outer try-catch
+- Stratova entity lookup by name may miss products whose names don't exactly match — mitigated by ilike search + graceful null return (push silently skips if no match)
+- CF tenant lookup by medium_pub slug may miss products — same mitigation
+- Auto-approve fires publishToAll inline in generate route — if publishing fails, generate still returns ok with campaign_id; failure logged to organism_posts_log
 
 ---
-## OO APPROVAL STATUS: APPROVED — user authorized "fix this stuff" 2026-05-03
+## OO APPROVAL STATUS: APPROVED — user authorized "get keys, build it" 2026-05-03

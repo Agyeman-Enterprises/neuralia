@@ -118,6 +118,18 @@ SECTION 0: NAVIGATION — ALL TOP-LEVEL ROUTES
 - [ ] L3: Human approves → post appears in organism_posts_log
 - [ ] L4: Dashboard shows lead as 'posted' after approval
 
+## SECTION M — Stratova + ContentForge Integration
+
+- [ ] M1: After triage with score ≥ 6, a crm_contacts row appears in Stratova Supabase (mjbwbfwfsoakneeutueg) for the matched product entity
+- [ ] M2: crm_contacts row has source='neuralia', lead_score = triage_score×10, custom_fields.neuralia_lead_id populated
+- [ ] M3: After triage with score ≥ 6 on a product with medium_pub set, a cf_rss_items row appears in CF Supabase (jjijalseqbukozfdjmfn) with signal_type='opportunity'
+- [ ] M4: cf_rss_items row has relevance_score = triage_score/10, status='new', domain_slug = product.medium_pub
+- [ ] M5: Products without a matching Stratova entity (no ilike name match) push silently — no error thrown, lead still triaged
+- [ ] M6: Products without medium_pub set skip CF push silently — no error thrown
+- [ ] M7: When score ≥ 8 AND product has ≥ 1 prior approved/posted campaign — generate auto-approves and publishes (no human review step)
+- [ ] M8: Auto-approved campaign has status='posted', approved_by='auto' in organism_campaigns
+- [ ] M9: Auto-approved campaign has entries in organism_posts_log for each channel attempted
+
 ---
 
 ## Current Status
