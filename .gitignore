@@ -16,3 +16,6 @@ tsconfig.tsbuildinfo
 .claude/OO_VIOLATION.json
 .claude/OO_ESCALATION.json
 .claude/VIOLATIONS.log
+
+# Playwright test artifacts
+test-results/
