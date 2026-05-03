@@ -2,6 +2,7 @@
   "crons": [
     { "path": "/api/scrape", "schedule": "0 20 * * *" },
     { "path": "/api/triage", "schedule": "15 20 * * *" },
-    { "path": "/api/generate", "schedule": "30 20 * * *" }
+    { "path": "/api/generate", "schedule": "30 20 * * *" },
+    { "path": "/api/cleanup", "schedule": "0 21 * * *" }
   ]
 }

@@ -11,6 +11,7 @@ export const maxDuration = 300
 
 async function tryAutoApprove(lead: LeadRow, campaign: CampaignRow, product: ProductRow): Promise<boolean> {
   if ((lead.triage_score ?? 0) < 8) return false
+  if (lead.source === 'reddit' || lead.source === 'hn') return false
 
   const { count } = await db()
     .from('organism_campaigns')

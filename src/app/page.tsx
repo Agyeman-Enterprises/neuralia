@@ -52,6 +52,7 @@ export default function Dashboard() {
   const [sortKey, setSortKey] = useState<SortKey>('triage_score')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [working, setWorking] = useState<string | null>(null)
+  const [clearing, setClearing] = useState(false)
 
   const reload = useCallback(() => {
     setLoading(true)
@@ -86,6 +87,17 @@ export default function Dashboard() {
       body: JSON.stringify({ campaign_id: campaignId }),
     })
     setWorking(null)
+    reload()
+  }, [reload])
+
+  const clearAll = useCallback(async (type: 'provisional' | 'rejected') => {
+    setClearing(true)
+    await fetch('/api/purge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type }),
+    })
+    setClearing(false)
     reload()
   }, [reload])
 
@@ -160,7 +172,8 @@ export default function Dashboard() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '1px solid #1e293b', paddingBottom: 0 }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '1px solid #1e293b', paddingBottom: 0, alignItems: 'flex-end', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', gap: 4 }}>
         {(Object.keys(TAB_LABELS) as Tab[]).map(t => (
           <button
             key={t}
@@ -175,6 +188,16 @@ export default function Dashboard() {
             {TAB_LABELS[t]}{counts[t] > 0 ? ` (${counts[t]})` : ''}
           </button>
         ))}
+        </div>
+        {(tab === 'provisional' || tab === 'rejected') && counts[tab] > 0 && (
+          <button
+            onClick={() => clearAll(tab as 'provisional' | 'rejected')}
+            disabled={clearing}
+            style={{ background: '#7f1d1d', color: '#fca5a5', border: '1px solid #991b1b', borderRadius: 6, padding: '4px 12px', fontSize: 12, cursor: 'pointer', marginBottom: 2, whiteSpace: 'nowrap' }}
+          >
+            {clearing ? 'Clearing…' : `Clear All ${TAB_LABELS[tab]}`}
+          </button>
+        )}
       </div>
 
       {/* Table */}
