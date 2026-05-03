@@ -8,12 +8,13 @@ export async function notifyAlrtme(
 ): Promise<string | null> {
   const key = process.env.ALRTME_API_KEY
   const ingestUrl = process.env.ALRTME_INGEST_URL ?? 'https://alrtme.co/api/ingest'
-  if (!key) { console.warn('[notify] ALRTME_API_KEY not set'); return null }
+  if (!key) return null
 
   try {
     const res = await fetch(ingestUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(10_000),
       body: JSON.stringify({
         api_key: key,
         source: 'neuralia',
@@ -31,10 +32,10 @@ export async function notifyAlrtme(
         url: `${APP_URL}/review/${campaign.id}`,
       }),
     })
+    if (!res.ok) return null
     const data = await res.json()
     return data.alertId ?? null
-  } catch (err) {
-    console.error('[notify] Alrtme failed:', err)
+  } catch {
     return null
   }
 }
@@ -50,6 +51,7 @@ export async function notifyNexus(
     const res = await fetch(`${nexusUrl}/api/alerts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-nexus-internal-key': nexusKey },
+      signal: AbortSignal.timeout(10_000),
       body: JSON.stringify({
         entity_id: product.id,
         type: 'content_generated',
@@ -58,6 +60,7 @@ export async function notifyNexus(
         description: `Content generated for ${product.name} from ${lead.source} lead. Review: ${APP_URL}/review/${campaign.id}`,
       }),
     })
+    if (!res.ok) return null
     const data = await res.json()
     return data.id ?? null
   } catch {

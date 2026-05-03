@@ -1,4 +1,3 @@
-// ── Scraper: Reddit + HN + RSS ────────────────────────────────────────────
 import type { RawLead } from '@/types'
 
 const REDDIT_SUBREDDITS = (process.env.REDDIT_SUBREDDITS ?? 'r/entrepreneur,r/SaaS')
@@ -16,7 +15,7 @@ export async function scrapeReddit(): Promise<RawLead[]> {
     try {
       const res = await fetch(
         `https://www.reddit.com/r/${sub}/hot.json?limit=25`,
-        { headers: { 'User-Agent': 'Neuralia/1.0 marketing-research-bot' } }
+        { headers: { 'User-Agent': 'Neuralia/1.0 marketing-research-bot' }, signal: AbortSignal.timeout(10_000) }
       )
       if (!res.ok) continue
       const json = await res.json() as { data: { children: Array<{ data: RedditPost }> } }
@@ -36,8 +35,8 @@ export async function scrapeReddit(): Promise<RawLead[]> {
           })
         }
       }
-    } catch (err) {
-      console.error(`[scraper] reddit/${sub} failed:`, err)
+    } catch {
+      // partial results ok — route logs per-source errors to scrape_log
     }
   }
 
@@ -58,29 +57,24 @@ interface RedditPost {
 
 export async function scrapeHN(): Promise<RawLead[]> {
   const leads: RawLead[] = []
-  try {
-    const res = await fetch('https://hnrss.org/newest?count=50&points=10')
-    if (!res.ok) return leads
-    const xml = await res.text()
-    // Parse RSS XML minimally
-    const items = xml.match(/<item>([\s\S]*?)<\/item>/g) ?? []
-    for (const item of items.slice(0, 30)) {
-      const title = (item.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/) ?? item.match(/<title>(.*?)<\/title>/))?.[1] ?? ''
-      const link = item.match(/<comments>(.*?)<\/comments>/)?.[1] ?? ''
-      const desc = item.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>/)?.[1] ?? ''
-      const guid = item.match(/<guid[^>]*>(.*?)<\/guid>/)?.[1] ?? link
+  const res = await fetch('https://hnrss.org/newest?count=50&points=10', { signal: AbortSignal.timeout(10_000) })
+  if (!res.ok) return leads
+  const xml = await res.text()
+  const items = xml.match(/<item>([\s\S]*?)<\/item>/g) ?? []
+  for (const item of items.slice(0, 30)) {
+    const title = (item.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/) ?? item.match(/<title>(.*?)<\/title>/))?.[1] ?? ''
+    const link = item.match(/<comments>(.*?)<\/comments>/)?.[1] ?? ''
+    const desc = item.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>/)?.[1] ?? ''
+    const guid = item.match(/<guid[^>]*>(.*?)<\/guid>/)?.[1] ?? link
 
-      if (!title || !link) continue
-      leads.push({
-        source: 'hn',
-        source_url: link,
-        source_id: guid.replace(/\D/g, '').slice(-12),
-        title,
-        body: desc.replace(/<[^>]+>/g, '').slice(0, 1000),
-      })
-    }
-  } catch (err) {
-    console.error('[scraper] HN failed:', err)
+    if (!title || !link) continue
+    leads.push({
+      source: 'hn',
+      source_url: link,
+      source_id: guid.replace(/\D/g, '').slice(-12),
+      title,
+      body: desc.replace(/<[^>]+>/g, '').slice(0, 1000),
+    })
   }
   return leads
 }
@@ -91,7 +85,7 @@ export async function scrapeRSS(): Promise<RawLead[]> {
   const leads: RawLead[] = []
   for (const feedUrl of RSS_FEEDS) {
     try {
-      const res = await fetch(feedUrl, { signal: AbortSignal.timeout(8000) })
+      const res = await fetch(feedUrl, { signal: AbortSignal.timeout(8_000) })
       if (!res.ok) continue
       const xml = await res.text()
       const items = xml.match(/<item>([\s\S]*?)<\/item>/g) ?? []
@@ -114,57 +108,54 @@ export async function scrapeRSS(): Promise<RawLead[]> {
           body: desc.replace(/<[^>]+>/g, '').slice(0, 1500),
         })
       }
-    } catch (err) {
-      console.error(`[scraper] RSS ${feedUrl} failed:`, err)
+    } catch {
+      // partial results ok — route logs per-source errors to scrape_log
     }
   }
   return leads
 }
 
-// ── Apollo.io (prospecting — find relevant companies/people) ──────────────
+// ── Apollo.io ─────────────────────────────────────────────────────────────
 
 export async function scrapeApollo(keywords: string[]): Promise<RawLead[]> {
   const key = process.env.APOLLO_API_KEY
   if (!key) return []
 
   const leads: RawLead[] = []
-  try {
-    const res = await fetch('https://api.apollo.io/api/v1/mixed_people/search', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache',
-        'X-Api-Key': key,
-      },
-      body: JSON.stringify({
-        q_keywords: keywords.join(' OR '),
-        page: 1,
-        per_page: 20,
-        person_titles: ['CEO', 'CTO', 'CMO', 'Founder', 'Director of Marketing', 'VP Marketing', 'Head of Marketing'],
-      }),
-    })
-    if (!res.ok) return leads
-    const data = await res.json() as { people?: ApolloPersonResult[] }
+  const res = await fetch('https://api.apollo.io/api/v1/mixed_people/search', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache',
+      'X-Api-Key': key,
+    },
+    signal: AbortSignal.timeout(15_000),
+    body: JSON.stringify({
+      q_keywords: keywords.join(' OR '),
+      page: 1,
+      per_page: 20,
+      person_titles: ['CEO', 'CTO', 'CMO', 'Founder', 'Director of Marketing', 'VP Marketing', 'Head of Marketing'],
+    }),
+  })
+  if (!res.ok) return leads
+  const data = await res.json() as { people?: ApolloPersonResult[] }
 
-    for (const person of data.people ?? []) {
-      if (!person.name || !person.organization_name) continue
-      leads.push({
-        source: 'apollo',
-        source_url: person.linkedin_url ?? `https://apollo.io`,
-        source_id: `apollo_${person.id}`,
-        title: `${person.title ?? 'Leader'} at ${person.organization_name} — ${person.name}`,
-        body: [
-          person.organization_name && `Company: ${person.organization_name}`,
-          person.industry && `Industry: ${person.industry}`,
-          person.city && `Location: ${person.city}, ${person.country}`,
-          person.headline && `Bio: ${person.headline}`,
-        ].filter(Boolean).join('\n'),
-        author: person.name,
-        author_url: person.linkedin_url ?? undefined,
-      })
-    }
-  } catch (err) {
-    console.error('[scraper] Apollo failed:', err)
+  for (const person of data.people ?? []) {
+    if (!person.name || !person.organization_name) continue
+    leads.push({
+      source: 'apollo',
+      source_url: person.linkedin_url ?? `https://apollo.io`,
+      source_id: `apollo_${person.id}`,
+      title: `${person.title ?? 'Leader'} at ${person.organization_name} — ${person.name}`,
+      body: [
+        person.organization_name && `Company: ${person.organization_name}`,
+        person.industry && `Industry: ${person.industry}`,
+        person.city && `Location: ${person.city}, ${person.country}`,
+        person.headline && `Bio: ${person.headline}`,
+      ].filter(Boolean).join('\n'),
+      author: person.name,
+      author_url: person.linkedin_url ?? undefined,
+    })
   }
   return leads
 }

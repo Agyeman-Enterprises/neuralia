@@ -66,6 +66,13 @@ export default function Dashboard() {
 
   useEffect(() => { reload() }, [reload])
 
+  // Reload when user returns to this tab (e.g. after reviewing a campaign)
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') reload() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [reload])
+
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     else { setSortKey(key); setSortDir('desc') }
@@ -120,7 +127,12 @@ export default function Dashboard() {
 
   return (
     <main style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 1280, margin: '0 auto', padding: 24, background: '#0f172a', minHeight: '100vh', color: '#e2e8f0' }}>
-      <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Neuralia</h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 700, margin: 0 }}>Neuralia</h1>
+        <button onClick={reload} disabled={loading} style={{ background: '#1e293b', border: '1px solid #334155', color: '#94a3b8', borderRadius: 8, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
+          {loading ? 'Loading…' : '↺ Refresh'}
+        </button>
+      </div>
       <p style={{ color: '#64748b', marginBottom: 24, fontSize: 13 }}>Autonomous content organism — scrape → triage → generate → approve → publish</p>
 
       {/* Stat cards */}

@@ -6,3 +6,13 @@ node_modules/
 notes_dump.txt
 
 .vercel
+
+tsconfig.tsbuildinfo
+
+# AE Scope Guard — OO approval state (local only)
+.claude/OO_APPROVED.json
+.claude/OO_COMPLETE.json
+.claude/OO_PENDING.json
+.claude/OO_VIOLATION.json
+.claude/OO_ESCALATION.json
+.claude/VIOLATIONS.log

@@ -107,11 +107,12 @@ function fallbackKeywordTriage(lead: LeadRow, products: ProductRow[]): TriageRes
     const hits = (product.pain_points ?? []).filter(kw => text.includes(kw.toLowerCase())).length
     if (hits > bestScore) { bestScore = hits; bestProduct = product }
   }
-  const score = Math.min(7, bestScore * 2)
+  // Cap at 5 so keyword fallback never auto-qualifies — leads go to provisional for human review
+  const score = Math.min(5, bestScore * 2)
   return {
     score,
-    matched_product_id: score >= 6 ? (bestProduct?.id ?? null) : null,
-    rationale: bestScore > 0 ? `Keyword match: ${bestScore} signals for ${bestProduct?.name}` : 'No matching pain signals detected',
+    matched_product_id: null,
+    rationale: bestScore > 0 ? `Keyword match (fallback): ${bestScore} signals for ${bestProduct?.name} — needs human review` : 'No matching pain signals detected',
   }
 }
 
