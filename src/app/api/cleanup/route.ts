@@ -4,6 +4,29 @@ import { verifyCron } from '@/lib/verify-cron'
 
 export const runtime = 'nodejs'
 
+async function notifyCleanup(provisional: number, rejected: number): Promise<void> {
+  const key = process.env.ALRTME_API_KEY
+  const ingestUrl = process.env.ALRTME_INGEST_URL ?? 'https://alrtme.co/api/ingest'
+  if (!key) return
+
+  await fetch(ingestUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(8_000),
+    body: JSON.stringify({
+      api_key: key,
+      source: 'neuralia',
+      title: 'Neuralia — daily cleanup ran',
+      message: [
+        `Provisional purged (>24h): ${provisional}`,
+        `Rejected purged (>7d): ${rejected}`,
+      ].join('\n'),
+      priority: 'low',
+      topic: 'system',
+    }),
+  }).catch(() => {})
+}
+
 export async function POST(req: NextRequest) {
   if (!verifyCron(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -31,11 +54,14 @@ export async function POST(req: NextRequest) {
   }
   await sb.from('organism_leads').delete().eq('status', 'rejected').lt('updated_at', rejectedCutoff)
 
-  return NextResponse.json({
-    ok: true,
-    provisional_purged: provDeleted?.length ?? 0,
-    rejected_purged: oldCampaigns?.length ?? 0,
-  })
+  const provisionalCount = provDeleted?.length ?? 0
+  const rejectedCount = oldCampaigns?.length ?? 0
+
+  if (provisionalCount > 0 || rejectedCount > 0) {
+    await notifyCleanup(provisionalCount, rejectedCount)
+  }
+
+  return NextResponse.json({ ok: true, provisional_purged: provisionalCount, rejected_purged: rejectedCount })
 }
 
 export async function GET(req: NextRequest) {
